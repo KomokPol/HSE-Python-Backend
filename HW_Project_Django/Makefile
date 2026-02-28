@@ -1,8 +1,6 @@
 PIP := venv/Scripts/pip
 PYTHON3 := venv/Scripts/python
 
-.PHONY: clear venv install_requirements run create_migrations migrations up_service superuser freeze
-
 clear:
 	python -c "import shutil; shutil.rmtree('venv', ignore_errors=True)"
 
@@ -33,3 +31,16 @@ up_service:
 
 superuser:
 	$(PYTHON3) manage.py createsuperuser
+
+load_fixtures:
+	$(PYTHON3) manage.py loaddata mock_data
+
+build_docker:
+	docker build -t django-backend .
+
+run_docker:
+	docker run -d -p 8000:8000 --name django-backend django-backend
+
+stop_docker:
+	docker stop django-backend
+	docker rm django-backend
