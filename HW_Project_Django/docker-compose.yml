@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  db:
+    build:
+      context: ./storage
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: posts
+      POSTGRES_USER: KomokPol
+      POSTGRES_PASSWORD: KomokPol
+    ports:
+      - "9000:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U KomokPol -d posts"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: .
+    container_name: django_app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+
+volumes:
+  postgres_data:
