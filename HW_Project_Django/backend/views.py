@@ -7,8 +7,67 @@ from django.shortcuts import get_object_or_404
 from backend.models import User, Post, Comment
 from backend.serializers import *
 
+from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import User as AuthUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        email = request.data.get('email', '')
+
+        if not username or not password:
+            return Response(
+                {'error': 'username и password обязательны'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if AuthUser.objects.filter(username=username).exists():
+            return Response(
+                {'error': 'Такой пользователь уже зарегестрирован'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        auth_user = AuthUser.objects.create_user(username=username, password=password, email=email)
+        token = Token.objects.create(user=auth_user)
+        return Response(
+            {'token': token.key, 'user_id' : auth_user.id},
+            status=status.HTTP_200_OK
+        )
+
+
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth import authenticate
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(username=username, password=password)
+
+        if not user:
+            return Response(
+                {'error': 'Неверные данные'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response(
+            {'token': token.key, 'user_id' : user.id},
+            status=status.HTTP_200_OK
+        )
+    
 
 class UserListCreateView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get(self, request):
         users = User.objects.annotate(posts_count=Count('post')).order_by('id')
         serializer = UserListSerializer(users, many=True)
@@ -29,6 +88,11 @@ class UserListCreateView(APIView):
 
 
 class UserDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get(self, request, pk):
         try:
             user = User.objects.get(pk=pk)
@@ -125,6 +189,11 @@ class UserStatsView(APIView):
 
 
 class PostListCreateView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get(self, request):
         posts = Post.objects.select_related('author').annotate(
             likes_count=Count('likes', distinct=True),
@@ -145,6 +214,11 @@ class PostListCreateView(APIView):
 
 
 class PostDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get(self, request, pk):
         post = get_object_or_404(Post.objects.select_related('author'), pk=pk)
         serializer = PostDetailSerializer(post)
@@ -197,6 +271,8 @@ class PostDetailView(APIView):
 
 
 class PostLikeView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, pk):
         try:
             post = Post.objects.get(pk=pk)
@@ -250,6 +326,11 @@ class PostCommentsView(APIView):
 
 
 class CommentListCreateView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get(self, request):
         comments = Comment.objects.select_related('author', 'post').annotate(likes_count=Count('likes'))
         serializer = CommentListSerializer(comments, many=True)
@@ -267,6 +348,11 @@ class CommentListCreateView(APIView):
 
 
 class CommentDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get(self, request, pk):
         comment = get_object_or_404(
             Comment.objects.select_related('author', 'post'), pk=pk
@@ -321,6 +407,8 @@ class CommentDetailView(APIView):
 
 
 class CommentLikeView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, pk):
         try:
             comment = Comment.objects.get(pk=pk)
