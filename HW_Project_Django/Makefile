@@ -32,15 +32,11 @@ up_service:
 superuser:
 	$(PYTHON3) manage.py createsuperuser
 
-load_fixtures:
-	$(PYTHON3) manage.py loaddata mock_data
+test:
+	python manage.py test backend
 
-build_docker:
-	docker build -t django-backend .
+compose_up:
+	docker-compose up --build
 
-run_docker:
-	docker run -d -p 8000:8000 --name django-backend django-backend
-
-stop_docker:
-	docker stop django-backend
-	docker rm django-backend
+compose_down:
+	docker-compose down
